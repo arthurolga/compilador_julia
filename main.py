@@ -1,3 +1,4 @@
+import sys
 from dataclasses import dataclass
 
 
@@ -5,15 +6,14 @@ from dataclasses import dataclass
 class Token:
     value: str
 
-
-operators = ("+", "-")
-
+# Available Operations
+operators = ("+", "-","/","*")
 
 class Tokenizer:
     def __init__(self, origin: str, position: int = 0):
         self.origin = origin
         self.position = position
-        self.actual = 0  # self.selectNext()
+        self.actual = self.selectNext() #Token(self.origin[0])
 
     def selectNext(self):
 
@@ -37,49 +37,61 @@ class Tokenizer:
 
             if current_c == " ":
                 pass
-
-            if current_c in operators:
+            elif current_c in operators:
                 self.actual = Token(current_c)
                 return self.actual
-
             # Ints
-            if current_c.isdigit():
+            elif current_c.isdigit():
                 pre_token += current_c
                 if not next_c or not next_c.isdigit():
                     self.actual = Token(pre_token)
                     return self.actual
+            else:
+                raise ValueError("<ERROR> Unindentified character: {}".format(current_c))
 
 
 class Parser:
     @staticmethod
     def parseExpression(tokenizer: Tokenizer, expression: str):
-        element1 = None
-        element2 = None
-        operation = None
-        while tokenizer.selectNext() is not None:
+        if tokenizer.actual.value.isdigit():
+            result = int(tokenizer.actual.value)
+            while tokenizer.selectNext() is not None:
+                if tokenizer.actual.value == '+':
+                    next_token = tokenizer.selectNext()
+                    if not next_token or not next_token.value.isdigit():
+                        raise ValueError("<ERROR> Missing expected integer after operator")
+                    result+=int(next_token.value)
 
-            if tokenizer.actual.value in operators:
-                operation = tokenizer.actual.value
+                elif tokenizer.actual.value == '-':
+                    next_token = tokenizer.selectNext()
+                    if not next_token or not next_token.value.isdigit():
+                        raise ValueError("<ERROR> Missing expected integer after operator")
+                    result-=int(next_token.value)
 
-            if tokenizer.actual.value.isdigit():
-                if element1:
-                    element2 = int(tokenizer.actual.value)
+                elif tokenizer.actual.value == '*':
+                    next_token = tokenizer.selectNext()
+                    if not next_token or not next_token.value.isdigit():
+                        raise ValueError("<ERROR> Missing expected integer after operator")
+                    result*=int(next_token.value)
+
+                elif tokenizer.actual.value == '/':
+                    next_token = tokenizer.selectNext()
+                    if not next_token or not next_token.value.isdigit():
+                        raise ValueError("<ERROR> Missing expected integer after operator")
+                    result/=int(next_token.value)
+
                 else:
-                    element1 = int(tokenizer.actual.value)
-            if element1 and operation and element2:
-                if operation == "+":
-                    element1 = element1 + element2
-                if operation == "-":
-                    element1 = element1 - element2
-                element2 = None
-                operation = None
+                    raise ValueError("<ERROR> Character not expected: {}".format(tokenizer.actual.value))
+        else:
+            raise ValueError("<ERROR> First character expected to be integer: {}".format(tokenizer.actual.value))
 
-        print(element1)
+        return result
 
     @staticmethod
     def run(code: str):
         tokenizer = Tokenizer(code)
-        Parser.parseExpression(tokenizer, code)
+        result = Parser.parseExpression(tokenizer, code)
+        sys.stdout.write(str(result)+ '\n')
 
 
 def main():
@@ -88,7 +100,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Only imports if main
-    import sys
-
     main()
