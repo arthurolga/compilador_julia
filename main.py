@@ -7,11 +7,21 @@ from dataclasses import dataclass
 @dataclass
 class Token:
     value: str
+    type: str = ""
+
 
 # Available Operations
-termOperators = ("/","*")
-operators = ("+", "-","/","*")
-eof = 'eof'
+TERM_OP = "TERM_OP"
+termOperators = ("/", "*")
+EXP_OP = "EXP_OP"
+expOperators = ("+", "-")
+FACT_OP = "FACT_OP"
+factOperators = ("(", ")")
+allOperators = termOperators + expOperators + factOperators
+# Number
+NUMBER = "NUMBER"
+
+EOF = 'EOF'
 
 
 class PrePro:
@@ -27,14 +37,13 @@ class Tokenizer:
         self.position = position
         self.actual = self.selectNext()
 
-
     def selectNext(self):
 
         maxLen = len(self.origin)
 
         if self.position == maxLen:
 
-            self.actual = Token(eof)
+            self.actual = Token(EOF, EOF)
             return
 
         pre_token = ""
@@ -49,21 +58,31 @@ class Tokenizer:
             self.position += 1
 
             if current_c == " ":
-                if self.position >= maxLen: 
-                    self.actual = Token(eof)
+                if self.position >= maxLen:
+                    self.actual = Token(EOF, EOF)
                     return self.actual
                 pass
-            elif current_c in operators:
-                self.actual = Token(current_c)
+            # + -
+            elif current_c in expOperators:
+                self.actual = Token(current_c, EXP_OP)
+                return self.actual
+            # * /
+            elif current_c in termOperators:
+                self.actual = Token(current_c, TERM_OP)
+                return self.actual
+            # ( )
+            elif current_c in factOperators:
+                self.actual = Token(current_c, FACT_OP)
                 return self.actual
             # Ints
             elif current_c.isdigit():
                 pre_token += current_c
                 if not next_c or not next_c.isdigit():
-                    self.actual = Token(pre_token)
+                    self.actual = Token(pre_token, NUMBER)
                     return self.actual
             else:
-                raise ValueError("<ERROR> Unindentified character: {}".format(current_c))
+                raise ValueError(
+                    "<ERROR> Unindentified character: {}".format(current_c))
 
 
 class Parser:
@@ -72,42 +91,46 @@ class Parser:
         if tokenizer.actual.value.isdigit():
             result = int(tokenizer.actual.value)
             tokenizer.selectNext()
-            while tokenizer.actual.value in termOperators :
-             
+            while tokenizer.actual.type == TERM_OP:
+
                 if tokenizer.actual.value == '*':
                     next_token = tokenizer.selectNext()
                     if not next_token or not next_token.value.isdigit():
-                        raise ValueError("<ERROR> Missing expected integer after operator")
-                    result*=int(next_token.value)
+                        raise ValueError(
+                            "<ERROR> Missing expected integer after operator")
+                    result *= int(next_token.value)
 
                 elif tokenizer.actual.value == '/':
                     next_token = tokenizer.selectNext()
                     if not next_token or not next_token.value.isdigit():
-                        raise ValueError("<ERROR> Missing expected integer after operator")
-                    result/=int(next_token.value)
-            
+                        raise ValueError(
+                            "<ERROR> Missing expected integer after operator")
+                    result /= int(next_token.value)
+
                 tokenizer.selectNext()
         else:
-            raise ValueError("<ERROR> First character expected to be integer: {}".format(tokenizer.actual.value))
-        
-        
+            raise ValueError(
+                "<ERROR> First character expected to be integer: {}".format(
+                    tokenizer.actual.value))
+
         return int(result)
 
     @staticmethod
     def parseExpression(tokenizer: Tokenizer):
         result = Parser.parseTerm(tokenizer)
-        while tokenizer.actual.value != eof:
+        while tokenizer.actual.type != EOF:
             if tokenizer.actual.value == '+':
                 tokenizer.selectNext()
                 next_token = Parser.parseTerm(tokenizer)
-                result+=int(next_token)
+                result += int(next_token)
 
             elif tokenizer.actual.value == '-':
                 tokenizer.selectNext()
                 next_token = Parser.parseTerm(tokenizer)
-                result-=int(next_token)
+                result -= int(next_token)
             else:
-                raise ValueError("<ERROR> Character not expected: {}".format(tokenizer.actual.value))
+                raise ValueError("<ERROR> Character not expected: {}".format(
+                    tokenizer.actual.value))
         return result
 
     @staticmethod
@@ -115,7 +138,7 @@ class Parser:
         expression = PrePro.filter(code)
         tokenizer = Tokenizer(expression)
         result = Parser.parseExpression(tokenizer)
-        sys.stdout.write(str(result)+ '\n')
+        sys.stdout.write(str(result) + '\n')
 
 
 def main():
