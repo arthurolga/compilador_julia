@@ -49,6 +49,9 @@ class Tokenizer:
             self.position += 1
 
             if current_c == " ":
+                if self.position >= maxLen: 
+                    self.actual = Token(eof)
+                    return self.actual
                 pass
             elif current_c in operators:
                 self.actual = Token(current_c)
