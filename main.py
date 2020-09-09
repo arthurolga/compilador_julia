@@ -1,4 +1,6 @@
 import sys
+import re
+import copy
 from dataclasses import dataclass
 
 
@@ -7,13 +9,24 @@ class Token:
     value: str
 
 # Available Operations
+termOperators = ("/","*")
 operators = ("+", "-","/","*")
+eof = 'eof'
+
+
+class PrePro:
+    @staticmethod
+    def filter(expression: str):
+        result = re.sub('(#=)((.|\n)*?)(=#)', '', expression)
+        return result
+
 
 class Tokenizer:
     def __init__(self, origin: str, position: int = 0):
         self.origin = origin
         self.position = position
-        self.actual = self.selectNext() #Token(self.origin[0])
+        self.actual = self.selectNext()
+
 
     def selectNext(self):
 
@@ -21,7 +34,7 @@ class Tokenizer:
 
         if self.position == maxLen:
 
-            self.actual = None
+            self.actual = Token(eof)
             return
 
         pre_token = ""
@@ -52,23 +65,13 @@ class Tokenizer:
 
 class Parser:
     @staticmethod
-    def parseExpression(tokenizer: Tokenizer, expression: str):
+    def parseTerm(tokenizer: Tokenizer):
         if tokenizer.actual.value.isdigit():
             result = int(tokenizer.actual.value)
-            while tokenizer.selectNext() is not None:
-                if tokenizer.actual.value == '+':
-                    next_token = tokenizer.selectNext()
-                    if not next_token or not next_token.value.isdigit():
-                        raise ValueError("<ERROR> Missing expected integer after operator")
-                    result+=int(next_token.value)
-
-                elif tokenizer.actual.value == '-':
-                    next_token = tokenizer.selectNext()
-                    if not next_token or not next_token.value.isdigit():
-                        raise ValueError("<ERROR> Missing expected integer after operator")
-                    result-=int(next_token.value)
-
-                elif tokenizer.actual.value == '*':
+            tokenizer.selectNext()
+            while tokenizer.actual.value in termOperators :
+             
+                if tokenizer.actual.value == '*':
                     next_token = tokenizer.selectNext()
                     if not next_token or not next_token.value.isdigit():
                         raise ValueError("<ERROR> Missing expected integer after operator")
@@ -79,18 +82,36 @@ class Parser:
                     if not next_token or not next_token.value.isdigit():
                         raise ValueError("<ERROR> Missing expected integer after operator")
                     result/=int(next_token.value)
-
-                else:
-                    raise ValueError("<ERROR> Character not expected: {}".format(tokenizer.actual.value))
+            
+                tokenizer.selectNext()
         else:
             raise ValueError("<ERROR> First character expected to be integer: {}".format(tokenizer.actual.value))
+        
+        
+        return int(result)
 
+    @staticmethod
+    def parseExpression(tokenizer: Tokenizer):
+        result = Parser.parseTerm(tokenizer)
+        while tokenizer.actual.value != eof:
+            if tokenizer.actual.value == '+':
+                tokenizer.selectNext()
+                next_token = Parser.parseTerm(tokenizer)
+                result+=int(next_token)
+
+            elif tokenizer.actual.value == '-':
+                tokenizer.selectNext()
+                next_token = Parser.parseTerm(tokenizer)
+                result-=int(next_token)
+            else:
+                raise ValueError("<ERROR> Character not expected: {}".format(tokenizer.actual.value))
         return result
 
     @staticmethod
     def run(code: str):
-        tokenizer = Tokenizer(code)
-        result = Parser.parseExpression(tokenizer, code)
+        expression = PrePro.filter(code)
+        tokenizer = Tokenizer(expression)
+        result = Parser.parseExpression(tokenizer)
         sys.stdout.write(str(result)+ '\n')
 
 
