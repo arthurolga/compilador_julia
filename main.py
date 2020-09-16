@@ -129,7 +129,7 @@ class Parser:
             elif tokenizer.actual.value == '/':
                 tokenizer.selectNext()
                 next_token = Parser.parseFactor(tokenizer)
-                result /= int(next_token)
+                result //= int(next_token)
             else:
                 raise ValueError("<ERROR> Character not expected: {}".format(
                     tokenizer.actual.value))
