@@ -163,7 +163,7 @@ class Parser:
         result = Parser.parseExpression(tokenizer)
         if tokenizer.actual.type != EOF:
             raise ValueError("<ERROR> Ended before EOF")
-        sys.stdout.write(str(result) + '\n')
+        sys.stdout.write(str(int(result)) + '\n')
 
 
 def main():
