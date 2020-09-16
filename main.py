@@ -87,38 +87,60 @@ class Tokenizer:
 
 class Parser:
     @staticmethod
-    def parseTerm(tokenizer: Tokenizer):
-        if tokenizer.actual.value.isdigit():
+    def parseFactor(tokenizer: Tokenizer):
+
+        if tokenizer.actual.type == EXP_OP:
+            if tokenizer.actual.value == '+':
+                tokenizer.selectNext()
+                return Parser.parseFactor(tokenizer)
+            if tokenizer.actual.value == '-':
+                tokenizer.selectNext()
+                return -Parser.parseFactor(tokenizer)
+        elif tokenizer.actual.type == NUMBER:
             result = int(tokenizer.actual.value)
             tokenizer.selectNext()
-            while tokenizer.actual.type == TERM_OP:
+            return result
 
-                if tokenizer.actual.value == '*':
-                    next_token = tokenizer.selectNext()
-                    if not next_token or not next_token.value.isdigit():
-                        raise ValueError(
-                            "<ERROR> Missing expected integer after operator")
-                    result *= int(next_token.value)
-
-                elif tokenizer.actual.value == '/':
-                    next_token = tokenizer.selectNext()
-                    if not next_token or not next_token.value.isdigit():
-                        raise ValueError(
-                            "<ERROR> Missing expected integer after operator")
-                    result /= int(next_token.value)
-
+        if tokenizer.actual.value == "(":
+            tokenizer.selectNext()
+            result = Parser.parseExpression(tokenizer)
+            if tokenizer.actual.value == ")":
                 tokenizer.selectNext()
+                return result
+            else:
+                raise ValueError("<ERROR> Missing closing brackets")
+
+        if tokenizer.actual.value == ")":
+            raise ValueError("<ERROR> Unexpected closing brackets")
+
         else:
-            raise ValueError(
-                "<ERROR> First character expected to be integer: {}".format(
+            raise ValueError("<ERROR> Invalid operand at this point")
+
+    @staticmethod
+    def parseTerm(tokenizer: Tokenizer):
+        # print(tokenizer.actual.value)
+        result = Parser.parseFactor(tokenizer)
+        while tokenizer.actual.type == TERM_OP:
+            if tokenizer.actual.value == '*':
+                tokenizer.selectNext()
+                next_token = Parser.parseFactor(tokenizer)
+                result *= int(next_token)
+
+            elif tokenizer.actual.value == '/':
+                tokenizer.selectNext()
+                next_token = Parser.parseFactor(tokenizer)
+                result /= int(next_token)
+            else:
+                raise ValueError("<ERROR> Character not expected: {}".format(
                     tokenizer.actual.value))
 
-        return int(result)
+        return result
 
     @staticmethod
     def parseExpression(tokenizer: Tokenizer):
+        # print(tokenizer.actual.value)
         result = Parser.parseTerm(tokenizer)
-        while tokenizer.actual.type != EOF:
+        while tokenizer.actual.type == EXP_OP:
             if tokenizer.actual.value == '+':
                 tokenizer.selectNext()
                 next_token = Parser.parseTerm(tokenizer)
@@ -131,6 +153,7 @@ class Parser:
             else:
                 raise ValueError("<ERROR> Character not expected: {}".format(
                     tokenizer.actual.value))
+
         return result
 
     @staticmethod
@@ -138,6 +161,8 @@ class Parser:
         expression = PrePro.filter(code)
         tokenizer = Tokenizer(expression)
         result = Parser.parseExpression(tokenizer)
+        if tokenizer.actual.type != EOF:
+            raise ValueError("<ERROR> Ended before EOF")
         sys.stdout.write(str(result) + '\n')
 
 
