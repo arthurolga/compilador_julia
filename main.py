@@ -2,6 +2,7 @@ import sys
 import re
 import copy
 from dataclasses import dataclass
+import nodes
 
 
 @dataclass
@@ -78,7 +79,7 @@ class Tokenizer:
             elif current_c.isdigit():
                 pre_token += current_c
                 if not next_c or not next_c.isdigit():
-                    self.actual = Token(pre_token, NUMBER)
+                    self.actual = Token(int(pre_token), NUMBER)
                     return self.actual
             else:
                 raise ValueError(
@@ -89,19 +90,25 @@ class Parser:
     @staticmethod
     def parseFactor(tokenizer: Tokenizer):
 
-        if tokenizer.actual.type == EXP_OP:
-            if tokenizer.actual.value == '+':
-                tokenizer.selectNext()
-                return Parser.parseFactor(tokenizer)
-            if tokenizer.actual.value == '-':
-                tokenizer.selectNext()
-                return -Parser.parseFactor(tokenizer)
-        elif tokenizer.actual.type == NUMBER:
-            result = int(tokenizer.actual.value)
-            tokenizer.selectNext()
-            return result
+        result = 0
 
-        if tokenizer.actual.value == "(":
+        if tokenizer.actual.type == EXP_OP:
+            #  -2  +1
+            result = nodes.UnOp(tokenizer.actual.value, [result])
+            tokenizer.selectNext()
+            result.children[0] = Parser.parseFactor(tokenizer)
+
+            # if tokenizer.actual.value == '+':
+            #     tokenizer.selectNext()
+            #     return Parser.parseFactor(tokenizer)
+            # if tokenizer.actual.value == '-':
+            #     tokenizer.selectNext()
+            #     return -Parser.parseFactor(tokenizer)
+        elif tokenizer.actual.type == NUMBER:
+            result = nodes.IntVal(tokenizer.actual.value)
+            tokenizer.selectNext()
+
+        elif tokenizer.actual.value == "(":
             tokenizer.selectNext()
             result = Parser.parseExpression(tokenizer)
             if tokenizer.actual.value == ")":
@@ -110,29 +117,36 @@ class Parser:
             else:
                 raise ValueError("<ERROR> Missing closing brackets")
 
-        if tokenizer.actual.value == ")":
+        elif tokenizer.actual.value == ")":
             raise ValueError("<ERROR> Unexpected closing brackets")
 
         else:
             raise ValueError("<ERROR> Invalid operand at this point")
+
+        return result
 
     @staticmethod
     def parseTerm(tokenizer: Tokenizer):
         # print(tokenizer.actual.value)
         result = Parser.parseFactor(tokenizer)
         while tokenizer.actual.type == TERM_OP:
-            if tokenizer.actual.value == '*':
-                tokenizer.selectNext()
-                next_token = Parser.parseFactor(tokenizer)
-                result *= int(next_token)
 
-            elif tokenizer.actual.value == '/':
-                tokenizer.selectNext()
-                next_token = Parser.parseFactor(tokenizer)
-                result //= int(next_token)
-            else:
-                raise ValueError("<ERROR> Character not expected: {}".format(
-                    tokenizer.actual.value))
+            result = nodes.BinOp(tokenizer.actual.value, [result])
+            tokenizer.selectNext()
+            result.children.append(Parser.parseFactor(tokenizer))
+
+            # if tokenizer.actual.value == '*':
+            #     tokenizer.selectNext()
+            #     next_token = Parser.parseFactor(tokenizer)
+            #     result *= int(next_token)
+
+            # elif tokenizer.actual.value == '/':
+            #     tokenizer.selectNext()
+            #     next_token = Parser.parseFactor(tokenizer)
+            #     result //= int(next_token)
+            # else:
+            # raise ValueError("<ERROR> Character not expected: {}".format(
+            #     tokenizer.actual.value))
 
         return result
 
@@ -141,15 +155,20 @@ class Parser:
         # print(tokenizer.actual.value)
         result = Parser.parseTerm(tokenizer)
         while tokenizer.actual.type == EXP_OP:
-            if tokenizer.actual.value == '+':
+            if tokenizer.actual.value == '+' or tokenizer.actual.value == '-':
+                result = nodes.BinOp(tokenizer.actual.value, [result])
                 tokenizer.selectNext()
-                next_token = Parser.parseTerm(tokenizer)
-                result += int(next_token)
+                result.children.append(Parser.parseTerm(tokenizer))
 
-            elif tokenizer.actual.value == '-':
-                tokenizer.selectNext()
-                next_token = Parser.parseTerm(tokenizer)
-                result -= int(next_token)
+            # if tokenizer.actual.value == '+':
+            #     tokenizer.selectNext()
+            #     next_token = Parser.parseTerm(tokenizer)
+            #     result += int(next_token)
+
+            # elif tokenizer.actual.value == '-':
+            #     tokenizer.selectNext()
+            #     next_token = Parser.parseTerm(tokenizer)
+            #     result -= int(next_token)
             else:
                 raise ValueError("<ERROR> Character not expected: {}".format(
                     tokenizer.actual.value))
@@ -160,14 +179,16 @@ class Parser:
     def run(code: str):
         expression = PrePro.filter(code)
         tokenizer = Tokenizer(expression)
-        result = Parser.parseExpression(tokenizer)
+        result = Parser.parseExpression(tokenizer).evaluate()
         if tokenizer.actual.type != EOF:
             raise ValueError("<ERROR> Ended before EOF")
         sys.stdout.write(str(int(result)) + '\n')
 
 
 def main():
-    expression = sys.argv[1]
+    path = sys.argv[1]
+    f = open(path, "r")
+    expression = f.read()
     Parser.run(expression)
 
 
