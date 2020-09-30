@@ -3,6 +3,10 @@ import re
 import copy
 from typing import List
 from dataclasses import dataclass
+from symbols import *
+
+# Symbol Table
+symbolTable = SymbolTable()
 
 
 @dataclass
@@ -66,6 +70,35 @@ class NoOp(Node):
     #  No Operation (Dummy). Não contem filhos
     def evaluate(self):
         pass
+
+
+class Identifier(Node):
+    def __init__(self, value):
+        self.value = value
+
+    def evaluate(self):
+        return symbolTable._get(self.value)
+
+
+class Assignment(Node):
+    def evaluate(self):
+        if len(self.children) == 2:
+            # e.g. symbolTable["test"] = 10
+            symbolTable._set(self.children[0], self.children[1].evaluate())
+        else:
+            raise ValueError("<ERROR> IntVal should have 2 children")
+
+
+class Statement(Node):
+    def evaluate(self):
+        for child in self.children:
+            child.evaluate()
+
+
+class Print(Node):
+    # println oepration
+    def evaluate(self):
+        print(self.children[0].evaluate())
 
 
 # Available Operations
