@@ -97,7 +97,8 @@ class Tokenizer:
             # variables and functions
             elif current_c.isalpha():
                 pre_token += current_c
-                while next_c and (next_c.isalpha() or next_c.isdigit()):
+                while next_c and (next_c.isalpha() or next_c.isdigit()
+                                  or next_c == "_"):
                     current_c = next_c
                     pre_token += current_c
                     self.position += 1
