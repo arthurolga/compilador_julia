@@ -1,5 +1,5 @@
 # Compilador de Julia
-![Diagrama v2.1](/DS v2.1.png)
+![Diagrama v2.1](/v2.1.png)
 
 ### EBNF
 ```
