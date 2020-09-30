@@ -177,7 +177,7 @@ class Parser:
 
     @staticmethod
     def parseTerm(tokenizer: Tokenizer):
-        # print(tokenizer.actual.value)
+        # #print(tokenizer.actual.value)
         result = Parser.parseFactor(tokenizer)
         while tokenizer.actual.type == TERM_OP:
 
@@ -209,7 +209,7 @@ class Parser:
                 tokenizer.selectNext()
                 result = Parser.parseExpression(tokenizer)
                 nodes.Assignment("=", [varName, result]).evaluate()
-                print(nodes.symbolTable)
+                #print(nodes.symbolTable)
         if tokenizer.actual.type == PRINT:
 
             tokenizer.selectNext()
@@ -218,7 +218,7 @@ class Parser:
                 result = Parser.parseExpression(tokenizer)
                 if tokenizer.actual.value == ")":
                     tokenizer.selectNext()
-                    print("chegou no printtt")
+                    #print("chegou no printtt")
                     nodes.Print(PRINT, [result]).evaluate()
                     pass
 
@@ -233,12 +233,12 @@ class Parser:
         while tokenizer.actual.type != EOF:
             Parser.parseCommand(tokenizer)
             if tokenizer.actual.type == END_LINE:
-                print("Nova linha")
+                #print("Nova linha")
                 tokenizer.selectNext()
 
     @staticmethod
     def parseExpression(tokenizer: Tokenizer):
-        # print(tokenizer.actual.value)
+        # #print(tokenizer.actual.value)
         result = Parser.parseTerm(tokenizer)
         while tokenizer.actual.type == EXP_OP:
             if tokenizer.actual.value == '+' or tokenizer.actual.value == '-':
