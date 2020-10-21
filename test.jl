@@ -1,13 +1,9 @@
+a = 12
+if a==13
+ println(0)
+elseif a==12
+ println(1)
 
 
 
-i = 0
-while i<10
- if i<3
-  println(80085)
- else
-  println(i)
- end
- i = i +1
-end
 

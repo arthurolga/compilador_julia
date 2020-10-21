@@ -293,8 +293,9 @@ class Parser:
         return result
 
     @staticmethod
-    def parseCommand(tokenizer: Tokenizer):
-        if tokenizer.actual.type == IF:
+    def parseCommand(tokenizer: Tokenizer, IfChecked=False):
+        if tokenizer.actual.type == IF or (tokenizer.actual.type == ELSE_IF
+                                           and IfChecked):
             ifNode = nodes.IfOp(None, [])
             tokenizer.selectNext()
             condition = Parser.parseRelational(tokenizer)
@@ -303,7 +304,11 @@ class Parser:
                 tokenizer.selectNext()
                 block = Parser.parseBlock(tokenizer)
                 ifNode.children.append(block)
-                if tokenizer.actual.type == ELSE:
+                if tokenizer.actual.type == ELSE_IF:
+                    result = Parser.parseCommand(tokenizer, IfChecked=True)
+                    ifNode.children.append(result)
+
+                elif tokenizer.actual.type == ELSE:
                     tokenizer.selectNext()
                     block = Parser.parseBlock(tokenizer)
                     ifNode.children.append(block)
@@ -356,14 +361,6 @@ class Parser:
                     final_node = nodes.Print(PRINT, [result])  #.evaluate()
                     return final_node
 
-            # if tokenizer.actual.value == "(":
-            #     tokenizer.selectNext()
-            #     result = Parser.parseRelational(tokenizer)
-            #     if tokenizer.actual.value == ")":
-            #         tokenizer.selectNext()
-            #         final_node = nodes.Print(PRINT, [result])  #.evaluate()
-            #         return final_node
-
         elif tokenizer.actual.type == END_LINE or tokenizer.actual.type == EOF:
             pass
         else:
@@ -375,13 +372,12 @@ class Parser:
     @staticmethod
     def parseBlock(tokenizer: Tokenizer):
         stmt = nodes.Statement(None, [])
-        #while tokenizer.actual.type != EOF and tokenizer.actual.type != END and tokenizer.actual.type != END:
-        while tokenizer.actual.type not in (EOF, END, ELSE):
+        while tokenizer.actual.type not in (EOF, END, ELSE, ELSE_IF):
             line_node = Parser.parseCommand(tokenizer)
             stmt.children.append(line_node)
             if tokenizer.actual.type == END_LINE:
-                #print("Nova linha")
                 tokenizer.selectNext()
+
         if tokenizer.actual.type in (END):
             tokenizer.selectNext()
         return stmt
