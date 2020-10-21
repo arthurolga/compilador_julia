@@ -42,9 +42,22 @@ class BinOp(Node):
         elif self.value == "-":
             return self.children[0].evaluate() - self.children[1].evaluate()
         elif self.value == "/":
+            # Only Integer
             return self.children[0].evaluate() // self.children[1].evaluate()
         elif self.value == "*":
             return self.children[0].evaluate() * self.children[1].evaluate()
+        elif self.value == ">":
+            return self.children[0].evaluate() > self.children[1].evaluate()
+        elif self.value == "<":
+            return self.children[0].evaluate() < self.children[1].evaluate()
+        elif self.value == "<":
+            return self.children[0].evaluate() < self.children[1].evaluate()
+        elif self.value == "&&":
+            return self.children[0].evaluate() and self.children[1].evaluate()
+        elif self.value == "||":
+            return self.children[0].evaluate() or self.children[1].evaluate()
+        elif self.value == "==":
+            return self.children[0].evaluate() == self.children[1].evaluate()
 
 
 class UnOp(Node):
@@ -54,6 +67,8 @@ class UnOp(Node):
             return self.children[0].evaluate()
         elif self.value == "-":
             return -self.children[0].evaluate()
+        elif self.value == "!":
+            return not self.children[0].evaluate()
 
 
 class IntVal(Node):
@@ -96,9 +111,35 @@ class Statement(Node):
 
 
 class Print(Node):
-    # println oepration
+    # println operation
     def evaluate(self):
         print(self.children[0].evaluate())
+
+
+class Readline(Node):
+    # readline operation
+    def evaluate(self):
+        res = int(input())
+        return res
+
+
+class WhileOp(Node):
+    def __init__(self, value: str, children=None):
+        self.value = value
+        self.children = children
+
+    def evaluate(self):
+        while (self.children[0].evaluate()):
+            self.children[1].evaluate()
+
+
+class IfOp(Node):
+    def evaluate(self):
+        if (self.children[0].evaluate()):
+            self.children[1].evaluate()
+        else:
+            if len(self.children) == 3:
+                self.children[2].evaluate()
 
 
 # Available Operations
@@ -109,7 +150,7 @@ expOperators = ("+", "-")
 FACT_OP = "FACT_OP"
 factOperators = ("(", ")")
 
-binOperators = ("+", "-", "*", "/")  #Ex: 1+1
+binOperators = ("+", "-", "*", "/", ">", "<", "&&", "||", "==")  #Ex: 1+1
 unOperators = ("+", "-")  #-1
 allOperators = termOperators + expOperators + factOperators
 # Number

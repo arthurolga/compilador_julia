@@ -4,6 +4,7 @@ import copy
 from dataclasses import dataclass
 import nodes
 from symbols import *
+import os
 
 
 @dataclass
@@ -14,15 +15,24 @@ class Token:
 
 # Available Operations
 TERM_OP = "TERM_OP"
-termOperators = ("/", "*")
+termOperators = ("/", "*", "&&")
 EXP_OP = "EXP_OP"
-expOperators = ("+", "-")
+expOperators = ("+", "-", "||")
 FACT_OP = "FACT_OP"
 factOperators = ("(", ")")
-allOperators = termOperators + expOperators + factOperators
+factBeginningOperators = ("!", "+", "-")
+REL_OP = "REL_OP"
+relatOperators = (">", "<")
+allOperators = termOperators + expOperators + factOperators + relatOperators
 endLine = "\n"
 assignment = "="
-println = "println"
+_println = "println"
+_while = "while"
+_end = "end"
+_readline = "readline"
+_if = "if"
+_else = "else"
+_elseif = "elseif"
 
 # FLAGS
 NUMBER = "NUMBER"
@@ -31,13 +41,20 @@ EOF = 'EOF'
 END_LINE = 'END_LINE'
 ASSIGN = 'ASSIGN'
 PRINT = "PRINT"
+WHILE = "WHILE"
+END = "END"
+READLINE = "READLINE"
+IF = "IF"
+ELSE = "ELSE"
+ELSE_IF = "ELSE_IF"
 
 
 class PrePro:
     @staticmethod
     def filter(expression: str):
-        result = re.sub('(#=)((.|\n)*?)(=#)', '', expression)
-        return result
+        text = re.sub('(#=)((.|\n)*?)(=#)', '', expression)
+        text = os.linesep.join([s for s in text.splitlines() if s])
+        return text
 
 
 class Tokenizer:
@@ -75,10 +92,73 @@ class Tokenizer:
             elif current_c in expOperators:
                 self.actual = Token(current_c, EXP_OP)
                 return self.actual
+            # !
+            elif current_c == "!":
+                self.actual = Token(current_c, EXP_OP)
+                return self.actual
             # * /
             elif current_c in termOperators:
                 self.actual = Token(current_c, TERM_OP)
                 return self.actual
+            # < >
+            elif current_c in relatOperators:
+                self.actual = Token(current_c, REL_OP)
+                return self.actual
+            # = and ==
+            elif current_c == "=":
+                current_c = next_c
+                self.position += 1
+                if self.position < maxLen:
+                    next_c = self.origin[self.position]
+                else:
+                    next_c = None
+                if current_c == "=":
+                    if next_c != "=":
+                        self.actual = Token("==", TERM_OP)
+                        return self.actual
+                    else:
+                        raise ValueError("<ERROR> Unexpected operand ===")
+                else:
+                    self.position -= 1
+                    self.actual = Token("=", ASSIGN)
+                    return self.actual
+            # &&
+            elif current_c == "&":
+                current_c = next_c
+                self.position += 1
+                if self.position < maxLen:
+                    next_c = self.origin[self.position]
+                else:
+                    next_c = None
+                if current_c == "&":
+                    if next_c != "&":
+                        self.actual = Token("&&", TERM_OP)
+                        return self.actual
+                    else:
+                        raise ValueError("<ERROR> Unexpected operand &&&")
+                else:
+                    raise ValueError(
+                        "<ERROR> Unexpected character {} after &".format(
+                            current_c))
+            # ||
+            elif current_c == "|":
+                current_c = next_c
+                self.position += 1
+                if self.position < maxLen:
+                    next_c = self.origin[self.position]
+                else:
+                    next_c = None
+                if current_c == "|":
+                    if next_c != "|":
+                        self.actual = Token("||", TERM_OP)
+                        return self.actual
+                    else:
+                        raise ValueError("<ERROR> Unexpected operand |||")
+                else:
+                    raise ValueError(
+                        "<ERROR> Unexpected character {} after |".format(
+                            current_c))
+
             # ( )
             elif current_c in factOperators:
                 self.actual = Token(current_c, FACT_OP)
@@ -87,11 +167,6 @@ class Tokenizer:
             # \n
             elif current_c == endLine:
                 self.actual = Token(current_c, END_LINE)
-                return self.actual
-
-            # =
-            elif current_c == assignment:
-                self.actual = Token(current_c, ASSIGN)
                 return self.actual
 
             # variables and functions
@@ -106,16 +181,45 @@ class Tokenizer:
                         next_c = self.origin[self.position]
                     else:
                         next_c = None
-                if pre_token == println:
+                # println
+                if pre_token == _println:
                     self.actual = Token(pre_token, PRINT)
-                    # if(next_c == "("):
-                    #     if self.position+1 < maxLen:
-                    #         next_c = self.origin[self.position+1]
-                    #     else:
-                    #         raise ValueError("<ERROR> Unclosed brackets")
-
-                    #     while next_c and next_c != ")":
-                    #         current_c = next_c
+                    return self.actual
+                # while
+                elif pre_token == _while:
+                    self.actual = Token(pre_token, WHILE)
+                    return self.actual
+                # if
+                elif pre_token == _if:
+                    self.actual = Token(pre_token, IF)
+                    return self.actual
+                # else
+                elif pre_token == _else:
+                    self.actual = Token(pre_token, ELSE)
+                    return self.actual
+                # elseif
+                elif pre_token == _elseif:
+                    self.actual = Token(pre_token, ELSE_IF)
+                    return self.actual
+                # end
+                elif pre_token == _end:
+                    self.actual = Token(pre_token, END)
+                    return self.actual
+                # readline()
+                elif pre_token == _readline:
+                    self.actual = Token(pre_token, READLINE)
+                    if next_c and next_c == "(":
+                        self.position += 1
+                        if self.position < maxLen:
+                            next_c = self.origin[self.position]
+                        else:
+                            next_c = None
+                        if next_c and next_c == ")":
+                            return self.actual
+                        else:
+                            raise ValueError("<ERROR> Unclosed parenthesis")
+                    else:
+                        raise ValueError("<ERROR> parenthesis on readline")
 
                 else:
                     self.actual = Token(pre_token, VARIABLE)
@@ -139,7 +243,7 @@ class Parser:
 
         result = 0
 
-        if tokenizer.actual.type == EXP_OP:
+        if tokenizer.actual.value in factBeginningOperators:
             #  -2  +1
             result = nodes.UnOp(tokenizer.actual.value, [result])
             tokenizer.selectNext()
@@ -161,7 +265,7 @@ class Parser:
 
         elif tokenizer.actual.value == "(":
             tokenizer.selectNext()
-            result = Parser.parseExpression(tokenizer)
+            result = Parser.parseRelational(tokenizer)
             if tokenizer.actual.value == ")":
                 tokenizer.selectNext()
                 return result
@@ -186,56 +290,101 @@ class Parser:
             tokenizer.selectNext()
             result.children.append(Parser.parseFactor(tokenizer))
 
-            # if tokenizer.actual.value == '*':
-            #     tokenizer.selectNext()
-            #     next_token = Parser.parseFactor(tokenizer)
-            #     result *= int(next_token)
-
-            # elif tokenizer.actual.value == '/':
-            #     tokenizer.selectNext()
-            #     next_token = Parser.parseFactor(tokenizer)
-            #     result //= int(next_token)
-            # else:
-            # raise ValueError("<ERROR> Character not expected: {}".format(
-            #     tokenizer.actual.value))
-
         return result
 
     @staticmethod
     def parseCommand(tokenizer: Tokenizer):
-        if tokenizer.actual.type == VARIABLE:
+        if tokenizer.actual.type == IF:
+            ifNode = nodes.IfOp(None, [])
+            tokenizer.selectNext()
+            condition = Parser.parseRelational(tokenizer)
+            ifNode.children.append(condition)
+            if tokenizer.actual.type == END_LINE:
+                tokenizer.selectNext()
+                block = Parser.parseBlock(tokenizer)
+                ifNode.children.append(block)
+                if tokenizer.actual.type == ELSE:
+                    tokenizer.selectNext()
+                    block = Parser.parseBlock(tokenizer)
+                    ifNode.children.append(block)
+
+            else:
+                raise ValueError(
+                    "<ERROR> Unexpected operation {}, expected a NEW_LINE".
+                    format(tokenizer.actual))
+            return ifNode
+
+        if tokenizer.actual.type == WHILE:
+            whileNode = nodes.WhileOp(None, [])
+            tokenizer.selectNext()
+            condition = Parser.parseRelational(tokenizer)
+            whileNode.children.append(condition)
+            if tokenizer.actual.type == END_LINE:
+                tokenizer.selectNext()
+                block = Parser.parseBlock(tokenizer)
+                whileNode.children.append(block)
+                return whileNode
+
+            else:
+                raise ValueError(
+                    "<ERROR> Unexpected operation {}, expected a NEW_LINE".
+                    format(tokenizer.actual))
+        elif tokenizer.actual.type == VARIABLE:
             varName = tokenizer.actual.value
             tokenizer.selectNext()
             if tokenizer.actual.type == ASSIGN:
                 tokenizer.selectNext()
-                result = Parser.parseExpression(tokenizer)
-                nodes.Assignment("=", [varName, result]).evaluate()
+                if tokenizer.actual.type == READLINE:
+                    result = nodes.Readline()
+                    tokenizer.selectNext()
+                    tokenizer.selectNext()
+                else:
+                    result = Parser.parseRelational(tokenizer)
+
+                final_node = nodes.Assignment("=",
+                                              [varName, result])  #.evaluate()
+                return final_node
                 #print(nodes.symbolTable)
-        if tokenizer.actual.type == PRINT:
+        elif tokenizer.actual.type == PRINT:
 
             tokenizer.selectNext()
             if tokenizer.actual.value == "(":
                 tokenizer.selectNext()
-                result = Parser.parseExpression(tokenizer)
+                result = Parser.parseRelational(tokenizer)
                 if tokenizer.actual.value == ")":
                     tokenizer.selectNext()
-                    #print("chegou no printtt")
-                    nodes.Print(PRINT, [result]).evaluate()
-                    pass
+                    final_node = nodes.Print(PRINT, [result])  #.evaluate()
+                    return final_node
 
-        if tokenizer.actual.type == END_LINE or tokenizer.actual.type == EOF:
+            # if tokenizer.actual.value == "(":
+            #     tokenizer.selectNext()
+            #     result = Parser.parseRelational(tokenizer)
+            #     if tokenizer.actual.value == ")":
+            #         tokenizer.selectNext()
+            #         final_node = nodes.Print(PRINT, [result])  #.evaluate()
+            #         return final_node
+
+        elif tokenizer.actual.type == END_LINE or tokenizer.actual.type == EOF:
             pass
         else:
             raise ValueError("<ERROR> Unexpected operation {}".format(
                 tokenizer.actual))
 
+        return nodes.NoOp()
+
     @staticmethod
     def parseBlock(tokenizer: Tokenizer):
-        while tokenizer.actual.type != EOF:
-            Parser.parseCommand(tokenizer)
+        stmt = nodes.Statement(None, [])
+        #while tokenizer.actual.type != EOF and tokenizer.actual.type != END and tokenizer.actual.type != END:
+        while tokenizer.actual.type not in (EOF, END, ELSE):
+            line_node = Parser.parseCommand(tokenizer)
+            stmt.children.append(line_node)
             if tokenizer.actual.type == END_LINE:
                 #print("Nova linha")
                 tokenizer.selectNext()
+        if tokenizer.actual.type in (END):
+            tokenizer.selectNext()
+        return stmt
 
     @staticmethod
     def parseExpression(tokenizer: Tokenizer):
@@ -259,15 +408,29 @@ class Parser:
             else:
                 raise ValueError("<ERROR> Character not expected: {}".format(
                     tokenizer.actual.value))
+        return result
 
+    @staticmethod
+    def parseRelational(tokenizer: Tokenizer):
+        # #print(tokenizer.actual.value)
+        result = Parser.parseExpression(tokenizer)
+        while tokenizer.actual.type == REL_OP:
+            if tokenizer.actual.value == '>' or tokenizer.actual.value == '<':
+                result = nodes.BinOp(tokenizer.actual.value, [result])
+                tokenizer.selectNext()
+                result.children.append(Parser.parseTerm(tokenizer))
+
+            else:
+                raise ValueError("<ERROR> Character not expected: {}".format(
+                    tokenizer.actual.value))
         return result
 
     @staticmethod
     def run(code: str):
         expression = PrePro.filter(code)
         tokenizer = Tokenizer(expression)
-        result = Parser.parseBlock(
-            tokenizer)  #Parser.parseExpression(tokenizer).evaluate()
+        Parser.parseBlock(tokenizer).evaluate(
+        )  #Parser.parseExpression(tokenizer).evaluate()
         if tokenizer.actual.type != EOF:
             raise ValueError("<ERROR> Ended before EOF")
         #sys.stdout.write(str(int(result)) + '\n')
