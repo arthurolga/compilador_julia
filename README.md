@@ -5,6 +5,7 @@
 ```
 BLOCK = { COMMAND } ;
 COMMAND = ( λ | ASSIGNMENT | PRINT | IF | WHILE), "\n" ;
+DECLARE = "local", IDENTIFIER, "::", TYPE;
 ASSIGNMENT = IDENTIFIER, "=", (REL_EXPRESSION | readline, "(", ")" ) ;
 PRINT = "println", "(", REL_EXPRESSION, ")" ;
 EXPRESSION = TERM, { ("+" | "-" | "||"), TERM } ;
@@ -16,6 +17,9 @@ ELSE = "else", "\n", BLOCK;
 TERM = FACTOR, { ("*" | "/" | "&&"), FACTOR } ;
 FACTOR = (("+" | "-" | "!"), FACTOR) | NUMBER | "(", REL_EXPRESSION, ")" | IDENTIFIER ;
 IDENTIFIER = LETTER, { LETTER | DIGIT | "_" } ;
+TYPE = "Int" | "Bool" | "String"; 
+STRING = '"', (.*?), '"';
+BOOLEAN = "true" | "false";
 NUMBER = DIGIT, { DIGIT } ;
 LETTER = ( a | ... | z | A | ... | Z ) ;
 DIGIT = ( 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 ) ;
