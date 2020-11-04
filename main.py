@@ -17,15 +17,20 @@ class Token:
 TERM_OP = "TERM_OP"
 termOperators = ("/", "*", "&&")
 EXP_OP = "EXP_OP"
-expOperators = ("+", "-", "||")
+expOperators = ("+", "-", "||", "or")
 FACT_OP = "FACT_OP"
 factOperators = ("(", ")")
 factBeginningOperators = ("!", "+", "-")
 REL_OP = "REL_OP"
 relatOperators = (">", "<")
 allOperators = termOperators + expOperators + factOperators + relatOperators
+
 endLine = "\n"
 assignment = "="
+quotes = '"'
+double_colon = "::"
+
+# Reserved
 _println = "println"
 _while = "while"
 _end = "end"
@@ -33,13 +38,20 @@ _readline = "readline"
 _if = "if"
 _else = "else"
 _elseif = "elseif"
+_true = "true"
+_false = "false"
+_local = "local"
+_or = "or"
 
-# FLAGS
+# FLAGS (Types of Tokens)
 NUMBER = "NUMBER"
+STRING = "STRING"
+BOOL = "BOOL"
 VARIABLE = "VARIABLE"
 EOF = 'EOF'
 END_LINE = 'END_LINE'
 ASSIGN = 'ASSIGN'
+DECLARE = "DECLARE"
 PRINT = "PRINT"
 WHILE = "WHILE"
 END = "END"
@@ -47,6 +59,8 @@ READLINE = "READLINE"
 IF = "IF"
 ELSE = "ELSE"
 ELSE_IF = "ELSE_IF"
+LOCAL = "LOCAL"
+TYPING = "TYPING"
 
 
 class PrePro:
@@ -158,6 +172,24 @@ class Tokenizer:
                     raise ValueError(
                         "<ERROR> Unexpected character {} after |".format(
                             current_c))
+            # ::
+            elif current_c == ":":
+                current_c = next_c
+                self.position += 1
+                if self.position < maxLen:
+                    next_c = self.origin[self.position]
+                else:
+                    next_c = None
+                if current_c == ":":
+                    if next_c != ":":
+                        self.actual = Token("::", DECLARE)
+                        return self.actual
+                    else:
+                        raise ValueError("<ERROR> Unexpected operand :::")
+                else:
+                    raise ValueError(
+                        "<ERROR> Unexpected character {} after :".format(
+                            current_c))
 
             # ( )
             elif current_c in factOperators:
@@ -169,7 +201,23 @@ class Tokenizer:
                 self.actual = Token(current_c, END_LINE)
                 return self.actual
 
-            # variables and functions
+            # String
+            elif current_c == quotes:
+                while next_c and (next_c != quotes):
+                    current_c = next_c
+                    pre_token += current_c
+                    self.position += 1
+                    if self.position < maxLen:
+                        next_c = self.origin[self.position]
+                    else:
+                        next_c = None
+                if next_c == quotes:
+                    #pre_token += next_c
+                    self.position += 1
+                    self.actual = Token(pre_token, STRING)
+                    return self.actual
+
+            # Reserved - variables, functions and true/false
             elif current_c.isalpha():
                 pre_token += current_c
                 while next_c and (next_c.isalpha() or next_c.isdigit()
@@ -181,6 +229,20 @@ class Tokenizer:
                         next_c = self.origin[self.position]
                     else:
                         next_c = None
+
+                #
+                # true
+                if pre_token == _true:
+                    self.actual = Token(pre_token, BOOL)
+                    return self.actual
+                # false
+                if pre_token == _false:
+                    self.actual = Token(pre_token, BOOL)
+                    return self.actual
+                # or
+                if pre_token == _or:
+                    self.actual = Token("||", TERM_OP)
+                    return self.actual
                 # println
                 if pre_token == _println:
                     self.actual = Token(pre_token, PRINT)
@@ -205,6 +267,14 @@ class Tokenizer:
                 elif pre_token == _end:
                     self.actual = Token(pre_token, END)
                     return self.actual
+                # local
+                elif pre_token == _local:
+                    self.actual = Token(pre_token, LOCAL)
+                    return self.actual
+                # type
+                elif pre_token in availableSymbolTypes:
+                    self.actual = Token(pre_token, TYPING)
+                    return self.actual
                 # readline()
                 elif pre_token == _readline:
                     self.actual = Token(pre_token, READLINE)
@@ -219,7 +289,29 @@ class Tokenizer:
                         else:
                             raise ValueError("<ERROR> Unclosed parenthesis")
                     else:
-                        raise ValueError("<ERROR> parenthesis on readline")
+                        raise ValueError("<ERROR> no parenthesis on readline")
+
+                # Types
+                # elif pre_token == _local:
+                #     # skip space
+                #     self.position += 1
+                #     next_c = self.origin[
+                #         self.position] if self.position < maxLen else None
+
+                #     if next_c == ":":
+                #         self.position += 1
+                #         next_c = self.origin[
+                #             self.position] if self.position < maxLen else None
+                #         if next_c and next_c == ":":
+                #             self.position += 1
+                #             next_c = self.origin[
+                #                 self.
+                #                 position] if self.position < maxLen else None
+
+                #         else:
+                #             raise ValueError("<ERROR> Unexpected :")
+                #     else:
+                #         raise ValueError("<ERROR> Missing : after local")
 
                 else:
                     self.actual = Token(pre_token, VARIABLE)
@@ -257,6 +349,14 @@ class Parser:
             #     return -Parser.parseFactor(tokenizer)
         elif tokenizer.actual.type == NUMBER:
             result = nodes.IntVal(tokenizer.actual.value)
+            tokenizer.selectNext()
+
+        elif tokenizer.actual.type == BOOL:
+            result = nodes.BoolVal(tokenizer.actual.value)
+            tokenizer.selectNext()
+
+        elif tokenizer.actual.type == STRING:
+            result = nodes.StringVal(tokenizer.actual.value)
             tokenizer.selectNext()
 
         elif tokenizer.actual.type == VARIABLE:
@@ -317,6 +417,10 @@ class Parser:
                 raise ValueError(
                     "<ERROR> Unexpected operation {}, expected a NEW_LINE".
                     format(tokenizer.actual))
+
+            if tokenizer.actual.type != END:
+                raise ValueError("<ERROR> Expected END on IF")
+            tokenizer.selectNext()
             return ifNode
 
         if tokenizer.actual.type == WHILE:
@@ -328,12 +432,17 @@ class Parser:
                 tokenizer.selectNext()
                 block = Parser.parseBlock(tokenizer)
                 whileNode.children.append(block)
+
+                if tokenizer.actual.type != END:
+                    raise ValueError("<ERROR> Expected END on WHILE")
+                tokenizer.selectNext()
                 return whileNode
 
             else:
                 raise ValueError(
                     "<ERROR> Unexpected operation {}, expected a NEW_LINE".
                     format(tokenizer.actual))
+
         elif tokenizer.actual.type == VARIABLE:
             varName = tokenizer.actual.value
             tokenizer.selectNext()
@@ -346,10 +455,24 @@ class Parser:
                 else:
                     result = Parser.parseRelational(tokenizer)
 
-                final_node = nodes.Assignment("=",
-                                              [varName, result])  #.evaluate()
+                final_node = nodes.Assignment("=", [varName, result])
                 return final_node
-                #print(nodes.symbolTable)
+
+        elif tokenizer.actual.type == LOCAL:
+            tokenizer.selectNext()
+            if tokenizer.actual.type == VARIABLE:
+                varName = tokenizer.actual.value
+                tokenizer.selectNext()
+                if tokenizer.actual.type == DECLARE:
+                    tokenizer.selectNext()
+                    if tokenizer.actual.type == TYPING:
+                        typeNode = nodes.Declare(
+                            "::", [varName, tokenizer.actual.value])
+                        tokenizer.selectNext()
+                        return typeNode
+            else:
+                raise ValueError("<ERROR> Expected variable after Local")
+
         elif tokenizer.actual.type == PRINT:
 
             tokenizer.selectNext()
@@ -378,8 +501,8 @@ class Parser:
             if tokenizer.actual.type == END_LINE:
                 tokenizer.selectNext()
 
-        if tokenizer.actual.type in (END):
-            tokenizer.selectNext()
+        # if tokenizer.actual.type in (END):
+        #     tokenizer.selectNext()
         return stmt
 
     @staticmethod
