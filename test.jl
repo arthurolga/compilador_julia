@@ -1,24 +1,13 @@
-local a::Bool
 local i::Int
+local n::Int
+local f::Int
+i = 2
+n = 5
+f = 1
 
-a = true
-b = false
-
-n = readline()
-i = 0
-while i < (n+1)
-    i = i+1
-    
-    value = i / 2
-    
-    if (value*2 )== i
-        println("- "*i*" PAR")
-    else
-        println("- "*i*" IMPAR")
-    end
-
+while (i < (n + 1))
+f = f * i
+i = i + 1
 end
 
-
-    
-
+println(f)

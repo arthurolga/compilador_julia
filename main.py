@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import nodes
 from symbols import *
 import os
+from compiler import compiler
 
 
 @dataclass
@@ -552,6 +553,8 @@ class Parser:
         )  #Parser.parseExpression(tokenizer).evaluate()
         if tokenizer.actual.type != EOF:
             raise ValueError("<ERROR> Ended before EOF")
+
+        compiler.flush()
         #sys.stdout.write(str(int(result)) + '\n')
 
 

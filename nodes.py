@@ -4,6 +4,7 @@ import copy
 from typing import List
 from dataclasses import dataclass
 from symbols import *
+from compiler import compiler
 
 # Symbol Table
 symbolTable = SymbolTable()
@@ -16,15 +17,25 @@ class Token:
 
 
 class Node:
+    
+    i=0
+
     def __init__(self, value=None, children=None):
         self.value = value
         self.children = children
+        self.i = Node.newId()
+
 
     def evaluate(self):
         pass
 
     def __str__(self):
-        return ("Node:{} Children:{}".format(self.value, str(self.children)))
+        return ("Node:{} Children:{}".format(str(self.value), str(self.children)))
+
+    @staticmethod
+    def newId():
+        Node.i +=1
+        return Node.i
 
 
 class BinOp(Node):
@@ -39,31 +50,90 @@ class BinOp(Node):
     def evaluate(self):
         # Int to Int Operations
         if self.value == "+":
-            return self.children[0].evaluate() + self.children[1].evaluate()
+            #return self.children[0].evaluate() + self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("ADD EAX, EBX")
+            compiler.writeLine("MOV EBX, EAX")
+
         elif self.value == "-":
-            return self.children[0].evaluate() - self.children[1].evaluate()
+            #return self.children[0].evaluate() - self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("SUB EAX, EBX")
+            compiler.writeLine("MOV EBX, EAX")
+
         elif self.value == "/":
-            return self.children[0].evaluate() // self.children[1].evaluate()
+            #return self.children[0].evaluate() // self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("DIV EAX, EBX")
+            compiler.writeLine("MOV EBX, EAX")
+
         elif self.value == ">":
-            return self.children[0].evaluate() > self.children[1].evaluate()
+            #return self.children[0].evaluate() > self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("CMP EAX, EBX")
+            compiler.writeLine("CALL binop_jg")
+
         elif self.value == "<":
-            return self.children[0].evaluate() < self.children[1].evaluate()
-        elif self.value == "<":
-            return self.children[0].evaluate() < self.children[1].evaluate()
+            #return self.children[0].evaluate() < self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("CMP EAX, EBX")
+            compiler.writeLine("CALL binop_jl")
+
         # Bool to int, or bool to bool
         elif self.value == "*":
-            if isinstance(self.children[0].evaluate(), str):
-                return self.children[0].evaluate() + str(
-                    self.children[1].evaluate())
-            else:
-                return self.children[0].evaluate() * self.children[1].evaluate(
-                )
+            # if isinstance(self.children[0].evaluate(), str):
+            #     return self.children[0].evaluate() + str(
+            #         self.children[1].evaluate())
+            # else:
+            #return self.children[0].evaluate() * self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("IMUL EBX")
+            compiler.writeLine("MOV EBX, EAX")
+
         elif self.value == "&&":
-            return self.children[0].evaluate() and self.children[1].evaluate()
+            #return self.children[0].evaluate() and self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("AND EAX, EBX")
+            compiler.writeLine("MOV EBX, EAX")
+
         elif self.value == "||":
-            return self.children[0].evaluate() or self.children[1].evaluate()
+            #return self.children[0].evaluate() or self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("OR EAX, EBX")
+            compiler.writeLine("MOV EBX, EAX")
+            
         elif self.value == "==":
-            return self.children[0].evaluate() == self.children[1].evaluate()
+            #return self.children[0].evaluate() == self.children[1].evaluate()
+            self.children[0].evaluate()
+            compiler.writeLine("PUSH EBX")
+            self.children[1].evaluate()
+            compiler.writeLine("POP EAX")
+            compiler.writeLine("CMP EAX, EBX")
+            compiler.writeLine("CALL binop_je")
 
 
 class UnOp(Node):
@@ -84,7 +154,9 @@ class IntVal(Node):
 
     # Integer value. Não contem filhos
     def evaluate(self):
-        return int(self.value)
+        #return int(self.value)
+        compiler.writeLine(f'MOV EBX, {self.value}')
+        #MOV EBX, 3 
 
 
 class BoolVal(Node):
@@ -102,7 +174,11 @@ class BoolVal(Node):
 
     # Bool value. Não contem filhos
     def evaluate(self):
-        return self.value
+        if self.value:
+            compiler.writeLine('CALL binop_true')
+        else:
+            compiler.writeLine('CALL binop_true')
+        #return self.value
 
 
 class StringVal(Node):
@@ -127,7 +203,9 @@ class Identifier(Node):
         self.value = value
 
     def evaluate(self):
-        return symbolTable._get(self.value).value
+        #return symbolTable._get(self.value).value
+        pos = symbolTable._get(self.value).pos
+        compiler.writeLine(f"MOV EBX, [EBP-{pos}]")
 
 
 class Declare(Node):
@@ -137,8 +215,11 @@ class Declare(Node):
             if self.children[1] in availableSymbolTypes:
                 _symbol = Symbol(name=self.children[0],
                                  symbolType=self.children[1],
+                                 size=4,
                                  value=None)
                 symbolTable._set(self.children[0], _symbol)
+
+                compiler.writeLine("PUSH DWORD 0")
             else:
                 raise ValueError("<ERROR> Unrecognized symbol {}".format(
                     self.children[1]))
@@ -149,39 +230,51 @@ class Declare(Node):
 class Assignment(Node):
     def evaluate(self):
         if len(self.children) == 2:
-            # e.g. symbolTable["test"] = 10
-            value = self.children[1].evaluate()
-            isInt = isinstance(value, int)
-            isBool = isinstance(value, bool)
-            isString = isinstance(value, str)
-            if self.children[0] in symbolTable.symbols:
-                tableValueType = symbolTable._get(self.children[0]).type
-                # Regular type
-                if (isInt and tableValueType
-                        == "Int") or (isBool and tableValueType == "Bool") or (
-                            isString and tableValueType == "String"):
-                    symbolTable._setOnlyValue(self.children[0], value)
-                # Int with Bool
-                elif (isInt and tableValueType == "Bool"):
-                    symbolTable._setOnlyValue(self.children[0], bool(value))
+            self.children[1].evaluate()
+            # if self.children[0] not in symbolTable.symbols:
+            #     _symbol = Symbol(name=self.children[0],
+            #                      symbolType=None,
+            #                      size=4,
+            #                      value=None)
+            #     symbolTable._set(self.children[0], _symbol)
 
-                else:
-                    raise ValueError(
-                        "<ERROR> Unexpected Type of Value of {}".format(value))
-            else:
-                if isInt:
-                    valueType = "Int"
-                elif isBool:
-                    valueType = "Bool"
-                elif isString:
-                    valueType = "String"
-                else:
-                    raise ValueError(
-                        "<ERROR> Unexpected Type of Value of {}".format(value))
-                _symbol = Symbol(name=self.children[0],
-                                 symbolType=valueType,
-                                 value=value)
-                symbolTable._set(self.children[0], _symbol)
+            #     compiler.writeLine("PUSH DWORD 0")
+            #print(symbolTable)
+            pos = symbolTable._get(self.children[0]).pos
+            compiler.writeLine(f"MOV [EBP-{pos}], EBX")
+            # # e.g. symbolTable["test"] = 10
+            # value = self.children[1].evaluate()
+            # isInt = isinstance(value, int)
+            # isBool = isinstance(value, bool)
+            # isString = isinstance(value, str)
+            # if self.children[0] in symbolTable.symbols:
+            #     tableValueType = symbolTable._get(self.children[0]).type
+            #     # Regular type
+            #     if (isInt and tableValueType
+            #             == "Int") or (isBool and tableValueType == "Bool") or (
+            #                 isString and tableValueType == "String"):
+            #         symbolTable._setOnlyValue(self.children[0], value)
+            #     # Int with Bool
+            #     elif (isInt and tableValueType == "Bool"):
+            #         symbolTable._setOnlyValue(self.children[0], bool(value))
+
+            #     else:
+            #         raise ValueError(
+            #             "<ERROR> Unexpected Type of Value of {}".format(value))
+            # else:
+            #     if isInt:
+            #         valueType = "Int"
+            #     elif isBool:
+            #         valueType = "Bool"
+            #     elif isString:
+            #         valueType = "String"
+            #     else:
+            #         raise ValueError(
+            #             "<ERROR> Unexpected Type of Value of {}".format(value))
+            #     _symbol = Symbol(name=self.children[0],
+            #                      symbolType=valueType,
+            #                      value=value)
+            #     symbolTable._set(self.children[0], _symbol)
 
         else:
             raise ValueError("<ERROR> Assignment should have 2 children")
@@ -196,7 +289,11 @@ class Statement(Node):
 class Print(Node):
     # println operation
     def evaluate(self):
-        print(self.children[0].evaluate())
+        #print(self.children[0].evaluate())
+        self.children[0].evaluate()
+        compiler.writeLine("PUSH EBX ")
+        compiler.writeLine("CALL print ")
+        compiler.writeLine("POP EBX ")
 
 
 class Readline(Node):
@@ -212,17 +309,40 @@ class WhileOp(Node):
         self.children = children
 
     def evaluate(self):
-        while (self.children[0].evaluate()):
-            self.children[1].evaluate()
+        # while (self.children[0].evaluate()):
+        #     self.children[1].evaluate()
+        compiler.writeLine(f"LOOP_{self.i}:")
+        self.children[0].evaluate()
+        #print(self.children[0])
+        compiler.writeLine("CMP EBX, False ")
+        compiler.writeLine(f"JE EXIT_{self.i}")
+        self.children[1].evaluate()
+        #print(self.children[1])
+        compiler.writeLine(f"JMP LOOP_{self.i}")
+        compiler.writeLine(f"EXIT_{self.i}: ")
+
 
 
 class IfOp(Node):
     def evaluate(self):
-        if (self.children[0].evaluate()):
-            self.children[1].evaluate()
-        else:
-            if len(self.children) == 3:
-                self.children[2].evaluate()
+        self.children[0].evaluate()
+        compiler.writeLine("CMP EBX, False ")
+        compiler.writeLine(f"JE EXIT_{self.i}")
+        self.children[1].evaluate()
+        compiler.writeLine(f"EXIT_{self.i}: ")
+
+        if len(self.children) > 2 and self.children[2]:
+            self.children[0].evaluate()
+            compiler.writeLine("CMP EBX, False ")
+            compiler.writeLine(f"JE EXIT_ELSE_{self.i}")
+            self.children[2].evaluate()
+            compiler.writeLine(f"EXIT_ELSE_{self.i}: ")
+
+        # if (self.children[0].evaluate()):
+        #     self.children[1].evaluate()
+        # else:
+        #     if len(self.children) == 3:
+        #         self.children[2].evaluate()
 
 
 # Available Operations
