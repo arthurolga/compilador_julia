@@ -52,8 +52,9 @@ class BinOp(Node):
             return self.children[0].evaluate() < self.children[1].evaluate()
         # Bool to int, or bool to bool
         elif self.value == "*":
-            if isinstance(self.children[0].evaluate(), str):
-                return self.children[0].evaluate() + str(
+            if isinstance(self.children[0].evaluate(), str) or isinstance(
+                    self.children[1].evaluate(), str):
+                return str(self.children[0].evaluate()) + str(
                     self.children[1].evaluate())
             else:
                 return self.children[0].evaluate() * self.children[1].evaluate(
@@ -169,19 +170,20 @@ class Assignment(Node):
                     raise ValueError(
                         "<ERROR> Unexpected Type of Value of {}".format(value))
             else:
-                if isInt:
-                    valueType = "Int"
-                elif isBool:
-                    valueType = "Bool"
-                elif isString:
-                    valueType = "String"
-                else:
-                    raise ValueError(
-                        "<ERROR> Unexpected Type of Value of {}".format(value))
-                _symbol = Symbol(name=self.children[0],
-                                 symbolType=valueType,
-                                 value=value)
-                symbolTable._set(self.children[0], _symbol)
+                # if isInt:
+                #     valueType = "Int"
+                # elif isBool:
+                #     valueType = "Bool"
+                # elif isString:
+                #     valueType = "String"
+                # else:
+                #     raise ValueError(
+                #         "<ERROR> Unexpected Type of Value of {}".format(value))
+                # _symbol = Symbol(name=self.children[0],
+                #                  symbolType=valueType,
+                #                  value=value)
+                # symbolTable._set(self.children[0], _symbol)
+                raise ValueError("<ERROR> Not declared at assignment")
 
         else:
             raise ValueError("<ERROR> Assignment should have 2 children")
@@ -218,7 +220,10 @@ class WhileOp(Node):
 
 class IfOp(Node):
     def evaluate(self):
-        if (self.children[0].evaluate()):
+        value = self.children[0].evaluate()
+        if (isinstance(value, str)):
+            raise ValueError("<ERROR> Can't check strings as bool")
+        if (value):
             self.children[1].evaluate()
         else:
             if len(self.children) == 3:
