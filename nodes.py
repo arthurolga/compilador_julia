@@ -203,12 +203,12 @@ class Assignment(Node):
 
 
 class Statement(Node):
-    def evaluate(self, symbolTable):
-        for child in self.children:
-            child.evaluate(symbolTable)
-            isReturn = isinstance(child, ReturnOp)
-            if isReturn:
-                break
+    def evaluate(self, symbolTable: SymbolTable):
+
+        i = 0
+        while i < len(self.children) and not 'return' in symbolTable.symbols:
+            self.children[i].evaluate(symbolTable)
+            i += 1
 
 
 class Print(Node):
@@ -236,11 +236,14 @@ class WhileOp(Node):
 
 class IfOp(Node):
     def evaluate(self, symbolTable):
+
         value = self.children[0].evaluate(symbolTable)
+
         if (isinstance(value, str)):
             raise ValueError("<ERROR> Can't check strings as bool")
 
         if (value):
+
             self.children[1].evaluate(symbolTable)
         else:
             if len(self.children) == 3:

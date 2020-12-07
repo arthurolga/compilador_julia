@@ -31,11 +31,13 @@ class SymbolTable:
 
     # Functions
     def _def(self, symbol, function):
-        self.symbols[symbol] = function
+        if symbol not in self.symbols:
+            self.symbols[symbol] = function
+        else:
+            raise ValueError("<ERROR> Function already declared")
 
     def _set_return(self, value):
-        if 'return' not in self.symbols:
-            self.symbols['return'] = value
+        self.symbols['return'] = value
 
     def _get_return(self):
         return self.symbols['return']
