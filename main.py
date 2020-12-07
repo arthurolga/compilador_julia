@@ -42,6 +42,8 @@ _true = "true"
 _false = "false"
 _local = "local"
 _or = "or"
+_function = "function"
+_return = "return"
 
 # FLAGS (Types of Tokens)
 NUMBER = "NUMBER"
@@ -61,6 +63,10 @@ ELSE = "ELSE"
 ELSE_IF = "ELSE_IF"
 LOCAL = "LOCAL"
 TYPING = "TYPING"
+FUNCTION = "FUNCTION"
+FUNCTION_IDENT = "FUNCTION_IDENT"
+COMMA = "COMMA"
+RETURN = "RETURN"
 
 
 class PrePro:
@@ -113,6 +119,10 @@ class Tokenizer:
             # * /
             elif current_c in termOperators:
                 self.actual = Token(current_c, TERM_OP)
+                return self.actual
+            # ,
+            elif current_c == ",":
+                self.actual = Token(current_c, COMMA)
                 return self.actual
             # < >
             elif current_c in relatOperators:
@@ -221,7 +231,7 @@ class Tokenizer:
             elif current_c.isalpha():
                 pre_token += current_c
                 while next_c and (next_c.isalpha() or next_c.isdigit()
-                                  or next_c == "_"):
+                                  or next_c == "_") and (next_c != '('):
                     current_c = next_c
                     pre_token += current_c
                     self.position += 1
@@ -230,7 +240,11 @@ class Tokenizer:
                     else:
                         next_c = None
 
-                #
+                # function
+                if pre_token == _function:
+                    self.actual = Token(pre_token, FUNCTION)
+                    return self.actual
+
                 # true
                 if pre_token == _true:
                     self.actual = Token(pre_token, BOOL)
@@ -246,6 +260,10 @@ class Tokenizer:
                 # println
                 if pre_token == _println:
                     self.actual = Token(pre_token, PRINT)
+                    return self.actual
+                # return
+                if pre_token == _return:
+                    self.actual = Token(pre_token, RETURN)
                     return self.actual
                 # while
                 elif pre_token == _while:
@@ -291,31 +309,14 @@ class Tokenizer:
                     else:
                         raise ValueError("<ERROR> no parenthesis on readline")
 
-                # Types
-                # elif pre_token == _local:
-                #     # skip space
-                #     self.position += 1
-                #     next_c = self.origin[
-                #         self.position] if self.position < maxLen else None
-
-                #     if next_c == ":":
-                #         self.position += 1
-                #         next_c = self.origin[
-                #             self.position] if self.position < maxLen else None
-                #         if next_c and next_c == ":":
-                #             self.position += 1
-                #             next_c = self.origin[
-                #                 self.
-                #                 position] if self.position < maxLen else None
-
-                #         else:
-                #             raise ValueError("<ERROR> Unexpected :")
-                #     else:
-                #         raise ValueError("<ERROR> Missing : after local")
-
                 else:
-                    self.actual = Token(pre_token, VARIABLE)
-                return self.actual
+                    # function identifier
+                    if next_c == '(':
+                        self.actual = Token(pre_token, FUNCTION_IDENT)
+                    # variable
+                    else:
+                        self.actual = Token(pre_token, VARIABLE)
+                    return self.actual
 
             # Ints
             elif current_c.isdigit():
@@ -326,7 +327,7 @@ class Tokenizer:
 
             else:
                 raise ValueError(
-                    "<ERROR> Unindentified character: {}".format(current_c))
+                    "<ERROR> Unidentified character: {}".format(current_c))
 
 
 class Parser:
@@ -341,12 +342,6 @@ class Parser:
             tokenizer.selectNext()
             result.children[0] = Parser.parseFactor(tokenizer)
 
-            # if tokenizer.actual.value == '+':
-            #     tokenizer.selectNext()
-            #     return Parser.parseFactor(tokenizer)
-            # if tokenizer.actual.value == '-':
-            #     tokenizer.selectNext()
-            #     return -Parser.parseFactor(tokenizer)
         elif tokenizer.actual.type == NUMBER:
             result = nodes.IntVal(tokenizer.actual.value)
             tokenizer.selectNext()
@@ -362,6 +357,28 @@ class Parser:
         elif tokenizer.actual.type == VARIABLE:
             result = nodes.Identifier(tokenizer.actual.value)
             tokenizer.selectNext()
+        elif tokenizer.actual.type == FUNCTION_IDENT:
+            funcName = tokenizer.actual.value
+            tokenizer.selectNext()
+            if tokenizer.actual.value == "(":
+                tokenizer.selectNext()
+                arguments = []
+                while tokenizer.actual.value != ')':
+                    temp = Parser.parseRelational(tokenizer)
+                    arguments.append(temp)
+                    if tokenizer.actual.value == ',':
+                        tokenizer.selectNext()
+                    if tokenizer.actual.type == EOF:
+                        raise ValueError(
+                            "<ERROR> Expected closing parenthesis")
+
+                if tokenizer.actual.value == ")":
+                    tokenizer.selectNext()
+
+                    final_node = nodes.CallFunc(
+                        funcName,
+                        arguments)  #Print(PRINT, [result])  #.evaluate()
+                    return final_node
 
         elif tokenizer.actual.value == "(":
             tokenizer.selectNext()
@@ -473,6 +490,13 @@ class Parser:
             else:
                 raise ValueError("<ERROR> Expected variable after Local")
 
+        elif tokenizer.actual.type == RETURN:
+            tokenizer.selectNext()
+            returnExpression = Parser.parseRelational(tokenizer)
+
+            returnNode = nodes.ReturnOp(returnExpression)
+            return returnNode
+
         elif tokenizer.actual.type == PRINT:
 
             tokenizer.selectNext()
@@ -484,6 +508,29 @@ class Parser:
                     final_node = nodes.Print(PRINT, [result])  #.evaluate()
                     return final_node
 
+        elif tokenizer.actual.type == FUNCTION_IDENT:
+            funcName = tokenizer.actual.value
+            tokenizer.selectNext()
+            if tokenizer.actual.value == "(":
+                tokenizer.selectNext()
+                arguments = []
+                while tokenizer.actual.value != ')':
+                    temp = Parser.parseRelational(tokenizer)
+                    arguments.append(temp)
+                    if tokenizer.actual.value == ',':
+                        tokenizer.selectNext()
+                    if tokenizer.actual.type == EOF:
+                        raise ValueError(
+                            "<ERROR> Expected closing parenthesis")
+
+                if tokenizer.actual.value == ")":
+                    tokenizer.selectNext()
+
+                    final_node = nodes.CallFunc(
+                        funcName,
+                        arguments)  #Print(PRINT, [result])  #.evaluate()
+                    return final_node
+
         elif tokenizer.actual.type == END_LINE or tokenizer.actual.type == EOF:
             pass
         else:
@@ -493,9 +540,84 @@ class Parser:
         return nodes.NoOp()
 
     @staticmethod
+    def parseProgram(tokenizer: Tokenizer):
+        stmt = nodes.Statement(None, [])
+        while tokenizer.actual.type != EOF:
+            if tokenizer.actual.type == FUNCTION:
+                tokenizer.selectNext()
+                if tokenizer.actual.type == FUNCTION_IDENT:
+                    funcName = tokenizer.actual.value
+                    tokenizer.selectNext()
+
+                    if tokenizer.actual.value == "(":
+                        tokenizer.selectNext()
+                        arguments = []
+                        while (tokenizer.actual.type == VARIABLE):
+                            argName = tokenizer.actual.value
+                            tokenizer.selectNext()
+                            if tokenizer.actual.type == DECLARE:
+                                tokenizer.selectNext()
+                                if tokenizer.actual.type == TYPING:
+                                    typeNode = nodes.Declare(
+                                        "::",
+                                        [argName, tokenizer.actual.value])
+
+                                    arguments.append(typeNode)
+                                    tokenizer.selectNext()
+                                    if tokenizer.actual.type == COMMA:
+                                        tokenizer.selectNext()
+                                    elif tokenizer.actual.value == ")":
+                                        break
+                                    else:
+                                        raise ValueError(
+                                            "<ERROR> Expected ) or COMMA")
+                                else:
+                                    raise ValueError(
+                                        "<ERROR> Expected type, instead got {}"
+                                        .format(tokenizer.actual.value))
+
+                        tokenizer.selectNext()
+
+                        if tokenizer.actual.type == DECLARE:
+                            tokenizer.selectNext()
+                            if tokenizer.actual.type == TYPING:
+                                funcType = tokenizer.actual.value
+                                tokenizer.selectNext()
+                        else:
+                            raise ValueError("<ERROR> Expected Declare")
+
+                        tokenizer.selectNext()
+                        commands = Parser.parseBlock(tokenizer)
+                        if (tokenizer.actual.type == END):
+                            tokenizer.selectNext()
+                            funcNode = nodes.FuncDec(funcName, arguments,
+                                                     funcType, commands)
+
+                            stmt.children.append(funcNode)
+
+                        else:
+                            raise ValueError(
+                                "<ERROR> Expected END after function")
+                    else:
+                        raise ValueError(
+                            "<ERROR> Expected () at function {}".format(
+                                funcName))
+                else:
+                    raise ValueError(
+                        "<ERROR> Expected identifier after function")
+            elif tokenizer.actual.type == END_LINE:
+                tokenizer.selectNext()
+            else:
+                #print(tokenizer.actual)
+                stmt.children.append(Parser.parseCommand(tokenizer))
+
+        return stmt
+
+    @staticmethod
     def parseBlock(tokenizer: Tokenizer):
         stmt = nodes.Statement(None, [])
         while tokenizer.actual.type not in (EOF, END, ELSE, ELSE_IF):
+
             line_node = Parser.parseCommand(tokenizer)
             stmt.children.append(line_node)
             if tokenizer.actual.type == END_LINE:
@@ -546,13 +668,15 @@ class Parser:
 
     @staticmethod
     def run(code: str):
+        # Global Symboltable
+        globalSymbolTable = SymbolTable()
+
         expression = PrePro.filter(code)
         tokenizer = Tokenizer(expression)
-        Parser.parseBlock(tokenizer).evaluate(
-        )  #Parser.parseExpression(tokenizer).evaluate()
+        Parser.parseProgram(tokenizer).evaluate(globalSymbolTable)
         if tokenizer.actual.type != EOF:
-            raise ValueError("<ERROR> Ended before EOF")
-        #sys.stdout.write(str(int(result)) + '\n')
+            raise ValueError("<ERROR> Ended before EOF: {}".format(
+                tokenizer.actual))
 
 
 def main():
