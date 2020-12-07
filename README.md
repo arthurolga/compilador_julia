@@ -3,10 +3,15 @@
 
 ### EBNF
 ```
-BLOCK = { COMMAND } ;
-COMMAND = ( λ | ASSIGNMENT | PRINT | IF | WHILE), "\n" ;
+PROGRAM = { FUNCTION | BLOCK };
+BLOCK  = {COMMAND}
+FUNCTION = DECLARE_FUNCTION, IDENTIFIER, "(",(IDENTIFIER,"::",TYPE), {",",IDENTIFIER,"::",TYPE},")","::",TYPE,BLOCK,"end";
+COMMAND = ( λ | LOCAL | ASSIGNMENT | PRINT | IF | WHILE | CALL | RETURN), "\n" ;
+CALL = IDENTIFIER,"(",(IDENTIFIER,"::",TYPE),{",",REL_EXPRESSION},")";
+RETURN = "return",REL_EXPRESSION;
+LOCAL = "local",identifier,"::",TYPE;
 DECLARE = "local", IDENTIFIER, "::", TYPE;
-ASSIGNMENT = IDENTIFIER, "=", (REL_EXPRESSION | readline, "(", ")" ) ;
+ASSIGNMENT = IDENTIFIER, "=", REL_EXPRESSION | READLINE, "(",")";
 PRINT = "println", "(", REL_EXPRESSION, ")" ;
 EXPRESSION = TERM, { ("+" | "-" | "||"), TERM } ;
 REL_EXPRESSION = EXPRESSION, { ("==" | ">" | "<"), EXPRESSION };
@@ -21,8 +26,9 @@ TYPE = "Int" | "Bool" | "String";
 STRING = '"', (.*?), '"';
 BOOLEAN = "true" | "false";
 NUMBER = DIGIT, { DIGIT } ;
-LETTER = ( a | ... | z | A | ... | Z ) ;
+LETTER = ( a ~ z | A ~ Z ) ;
 DIGIT = ( 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 ) ;
+DECLARE_FUNCTION = "function";
 ```
 
 ### Running
