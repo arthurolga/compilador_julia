@@ -68,7 +68,7 @@ class BinOp(Node):
                     self.children[1].evaluate(symbolTable))
             else:
                 return self.children[0].evaluate(
-                    symbolTable) * self.children[1].evaluate()
+                    symbolTable) * self.children[1].evaluate(symbolTable)
         elif self.value == "&&":
             return self.children[0].evaluate(
                 symbolTable) and self.children[1].evaluate(symbolTable)
